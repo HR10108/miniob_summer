@@ -580,6 +580,21 @@ expression:
       }
       delete $3;
     }
+    | MAX LBRACE RBRACE{
+      $$ = create_aggregate_expression("Unknown", nullptr, sql_string, &@$);
+    }
+    | MIN LBRACE RBRACE{
+      $$ = create_aggregate_expression("Unknown", nullptr, sql_string, &@$);
+    }
+    | COUNT LBRACE RBRACE{
+      $$ = create_aggregate_expression("Unknown", nullptr, sql_string, &@$);
+    }
+    | AVG LBRACE RBRACE{
+      $$ = create_aggregate_expression("Unknown", nullptr, sql_string, &@$);
+    }
+    | SUM LBRACE RBRACE{
+      $$ = create_aggregate_expression("Unknown", nullptr, sql_string, &@$);
+    }
     ;
 
 rel_attr:
