@@ -535,20 +535,50 @@ expression:
     | '*' {
       $$ = new StarExpr();
     }
-    | MAX LBRACE expression RBRACE {
-      $$ = create_aggregate_expression("MAX", $3, sql_string, &@$);
+    | MAX LBRACE expression_list RBRACE {
+      if ($3 != nullptr && $3->size() == 1) {
+        // expression_list 只有一个表达式时才正确
+        $$ = create_aggregate_expression("MAX", $3->front().release(), sql_string, &@$);
+      } else {
+        $$ = create_aggregate_expression("Unknown", $3->front().release(), sql_string, &@$);
+      }
+      delete $3;
     }
-    | COUNT LBRACE expression RBRACE {
-      $$ = create_aggregate_expression("COUNT", $3, sql_string, &@$);
+    | MIN LBRACE expression_list RBRACE {
+      if ($3 != nullptr && $3->size() == 1) {
+        // expression_list 只有一个表达式时才正确
+        $$ = create_aggregate_expression("MIN", $3->front().release(), sql_string, &@$);
+      } else {
+        $$ = create_aggregate_expression("Unknown", $3->front().release(), sql_string, &@$);
+      }
+      delete $3;
     }
-    | SUM LBRACE expression RBRACE {
-      $$ = create_aggregate_expression("SUM", $3, sql_string, &@$);
+    | COUNT LBRACE expression_list RBRACE {
+      if ($3 != nullptr && $3->size() == 1) {
+        // expression_list 只有一个表达式时才正确
+        $$ = create_aggregate_expression("COUNT", $3->front().release(), sql_string, &@$);
+      } else {
+        $$ = create_aggregate_expression("Unknown", $3->front().release(), sql_string, &@$);
+      }
+      delete $3;
     }
-    | MIN LBRACE expression RBRACE {
-      $$ = create_aggregate_expression("MIN", $3, sql_string, &@$);
+    | AVG LBRACE expression_list RBRACE {
+      if ($3 != nullptr && $3->size() == 1) {
+        // expression_list 只有一个表达式时才正确
+        $$ = create_aggregate_expression("AVG", $3->front().release(), sql_string, &@$);
+      } else {
+        $$ = create_aggregate_expression("Unknown", $3->front().release(), sql_string, &@$);
+      }
+      delete $3;
     }
-    | AVG LBRACE expression RBRACE {
-      $$ = create_aggregate_expression("AVG", $3, sql_string, &@$);
+    | SUM LBRACE expression_list RBRACE {
+      if ($3 != nullptr && $3->size() == 1) {
+        // expression_list 只有一个表达式时才正确
+        $$ = create_aggregate_expression("SUM", $3->front().release(), sql_string, &@$);
+      } else {
+        $$ = create_aggregate_expression("Unknown", $3->front().release(), sql_string, &@$);
+      }
+      delete $3;
     }
     ;
 
@@ -677,8 +707,9 @@ comp_op:
 
 // your code here
 group_by:
+    /* empty */
     {
-      $$ = nullptr;
+      $$ = new std::vector<std::unique_ptr<Expression>>();;
     }
     | GROUP BY expression_list {
       $$ = $3;
