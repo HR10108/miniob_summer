@@ -26,4 +26,8 @@ GRTAGS
 GPATH
 GTAGS
 docs/book
+miniob/db
+deps/3rd
+*.log.*
+libevent
 #*#
