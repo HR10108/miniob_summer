@@ -88,6 +88,11 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
       return bind_arithmetic_expression(expr, bound_expressions);
     } break;
 
+    case ExprType::ORDER: {
+      // MARK implement order expression
+      return bind_order_expression(expr, bound_expressions);
+    } break;
+
     case ExprType::AGGREGATION: {
       ASSERT(false, "shouldn't be here");
     } break;
@@ -386,7 +391,7 @@ RC check_aggregate_expression(AggregateExpr &expression)
   }
 
   // 子表达式中不能再包含聚合表达式
-  function<RC(std::unique_ptr<Expression>&)> check_aggregate_expr = [&](unique_ptr<Expression> &expr) -> RC {
+  function<RC(std::unique_ptr<Expression> &)> check_aggregate_expr = [&](unique_ptr<Expression> &expr) -> RC {
     RC rc = RC::SUCCESS;
     if (expr->type() == ExprType::AGGREGATION) {
       LOG_WARN("aggregate expression cannot be nested");
@@ -408,10 +413,10 @@ RC ExpressionBinder::bind_aggregate_expression(
     return RC::SUCCESS;
   }
 
-  auto unbound_aggregate_expr = static_cast<UnboundAggregateExpr *>(expr.get());
-  const char *aggregate_name = unbound_aggregate_expr->aggregate_name();
+  auto                unbound_aggregate_expr = static_cast<UnboundAggregateExpr *>(expr.get());
+  const char         *aggregate_name         = unbound_aggregate_expr->aggregate_name();
   AggregateExpr::Type aggregate_type;
-  RC rc = AggregateExpr::type_from_string(aggregate_name, aggregate_type);
+  RC                  rc = AggregateExpr::type_from_string(aggregate_name, aggregate_type);
   if (OB_FAIL(rc)) {
     LOG_WARN("invalid aggregate name: %s", aggregate_name);
     return rc;
@@ -447,5 +452,37 @@ RC ExpressionBinder::bind_aggregate_expression(
   }
 
   bound_expressions.emplace_back(std::move(aggregate_expr));
+  return RC::SUCCESS;
+}
+
+RC ExpressionBinder::bind_order_expression(
+    unique_ptr<Expression> &expr, vector<unique_ptr<Expression>> &bound_expressions)
+{
+  if (nullptr == expr) {
+    return RC::SUCCESS;
+  }
+
+  auto order_expr = static_cast<OrderExpr *>(expr.get());
+  // 绑定排序字段的表达式
+  vector<unique_ptr<Expression>> child_bound_expressions;
+  unique_ptr<Expression>        &child_expr = order_expr->child();
+
+  RC rc = bind_expression(child_expr, child_bound_expressions);
+  if (rc != RC::SUCCESS) {
+    return rc;
+  }
+
+  if (child_bound_expressions.size() != 1) {
+    LOG_WARN("invalid children number of order expression: %d", child_bound_expressions.size());
+    return RC::INVALID_ARGUMENT;
+  }
+
+  unique_ptr<Expression> &child = child_bound_expressions[0];
+  if (child.get() != child_expr.get()) {
+    child_expr.reset(child.release());
+  }
+
+  // 将排序表达式添加到 bound_expressions 中
+  bound_expressions.emplace_back(std::move(expr));
   return RC::SUCCESS;
 }

@@ -85,6 +85,7 @@ QUOTE            [\'\"]
 EXIT                                    RETURN_TOKEN(EXIT);
 HELP                                    RETURN_TOKEN(HELP);
 DESC                                    RETURN_TOKEN(DESC);
+ASC                                     RETURN_TOKEN(ASC);
 CREATE                                  RETURN_TOKEN(CREATE);
 DROP                                    RETURN_TOKEN(DROP);
 TABLE                                   RETURN_TOKEN(TABLE);
@@ -121,6 +122,7 @@ MIN                                     RETURN_TOKEN(MIN);
 COUNT                                   RETURN_TOKEN(COUNT);
 AVG                                     RETURN_TOKEN(AVG);
 SUM                                     RETURN_TOKEN(SUM);
+ORDER                                   RETURN_TOKEN(ORDER);
 STORAGE                                 RETURN_TOKEN(STORAGE);
 FORMAT                                  RETURN_TOKEN(FORMAT);
 {ID}                                    yylval->string=strdup(yytext); RETURN_TOKEN(ID);

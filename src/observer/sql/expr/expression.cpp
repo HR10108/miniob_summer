@@ -600,3 +600,19 @@ RC AggregateExpr::type_from_string(const char *type_str, AggregateExpr::Type &ty
   }
   return rc;
 }
+////////////////////////////////////////////////////////////////////////////////
+OrderExpr::OrderExpr(unique_ptr<Expression> child, bool is_asc) : child_(std::move(child)), is_asc_(is_asc) {}
+
+bool OrderExpr::equal(const Expression &other) const
+{
+  if (this == &other) {
+    return true;
+  }
+  if (other.type() != ExprType::ORDER) {
+    return false;
+  }
+  const auto &other_order_expr = static_cast<const OrderExpr &>(other);
+  return is_asc_ == other_order_expr.is_ascending() && child_->equal(*other_order_expr.child());
+}
+
+RC OrderExpr::get_value(const Tuple &tuple, Value &value) const { return child_->get_value(tuple, value); }

@@ -47,6 +47,7 @@ enum class ExprType
   CONJUNCTION,  ///< 多个表达式使用同一种关系(AND或OR)来联结
   ARITHMETIC,   ///< 算术运算
   AGGREGATION,  ///< 聚合运算
+  ORDER,        ///< 排序
 };
 
 /**
@@ -467,4 +468,33 @@ public:
 private:
   Type                        aggregate_type_;
   std::unique_ptr<Expression> child_;
+};
+
+/**
+ * @brief 排序表达式
+ * @ingroup Expression
+ */
+class OrderExpr : public Expression
+{
+public:
+  OrderExpr(std::unique_ptr<Expression> child, bool is_asc);
+  virtual ~OrderExpr() = default;
+  virtual ExprType type() const override { return ExprType::ORDER; }
+
+  bool equal(const Expression &other) const override;
+
+  bool is_ascending() const { return is_asc_; }
+
+  std::unique_ptr<Expression> &child() { return child_; }
+
+  const std::unique_ptr<Expression> &child() const { return child_; }
+
+  AttrType value_type() const override { return child_->value_type(); }
+  int      value_length() const override { return child_->value_length(); }
+
+  RC get_value(const Tuple &tuple, Value &value) const override;
+
+private:
+  unique_ptr<Expression> child_;
+  bool                   is_asc_;  // true if ascending, false if descending
 };

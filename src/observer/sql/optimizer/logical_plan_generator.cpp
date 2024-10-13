@@ -26,6 +26,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/project_logical_operator.h"
 #include "sql/operator/table_get_logical_operator.h"
 #include "sql/operator/group_by_logical_operator.h"
+#include "sql/operator/order_by_logical_operator.h"
 
 #include "sql/stmt/calc_stmt.h"
 #include "sql/stmt/delete_stmt.h"
@@ -137,7 +138,19 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
     last_oper = &group_by_oper;
   }
-
+  // MARK add order by plan
+  unique_ptr<LogicalOperator> order_by_oper;
+  rc = create_order_by_plan(select_stmt, order_by_oper);
+  if (OB_FAIL(rc)) {
+    LOG_WARN("failed to create order by logical plan. rc=%s", strrc(rc));
+    return rc;
+  }
+  if (order_by_oper) {
+    if (*last_oper) {
+      order_by_oper->add_child(std::move(*last_oper));
+    }
+    last_oper = &order_by_oper;
+  }
   auto project_oper = make_unique<ProjectLogicalOperator>(std::move(select_stmt->query_expressions()));
   if (*last_oper) {
     project_oper->add_child(std::move(*last_oper));
@@ -169,11 +182,10 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
       auto right_to_left_cost = implicit_cast_cost(right->value_type(), left->value_type());
       if (left_to_right_cost <= right_to_left_cost && left_to_right_cost != INT32_MAX) {
         ExprType left_type = left->type();
-        auto cast_expr = make_unique<CastExpr>(std::move(left), right->value_type());
+        auto     cast_expr = make_unique<CastExpr>(std::move(left), right->value_type());
         if (left_type == ExprType::VALUE) {
           Value left_val;
-          if (OB_FAIL(rc = cast_expr->try_get_value(left_val)))
-          {
+          if (OB_FAIL(rc = cast_expr->try_get_value(left_val))) {
             LOG_WARN("failed to get value from left child", strrc(rc));
             return rc;
           }
@@ -183,11 +195,10 @@ RC LogicalPlanGenerator::create_plan(FilterStmt *filter_stmt, unique_ptr<Logical
         }
       } else if (right_to_left_cost < left_to_right_cost && right_to_left_cost != INT32_MAX) {
         ExprType right_type = right->type();
-        auto cast_expr = make_unique<CastExpr>(std::move(right), left->value_type());
+        auto     cast_expr  = make_unique<CastExpr>(std::move(right), left->value_type());
         if (right_type == ExprType::VALUE) {
           Value right_val;
-          if (OB_FAIL(rc = cast_expr->try_get_value(right_val)))
-          {
+          if (OB_FAIL(rc = cast_expr->try_get_value(right_val))) {
             LOG_WARN("failed to get value from right child", strrc(rc));
             return rc;
           }
@@ -280,10 +291,10 @@ RC LogicalPlanGenerator::create_plan(ExplainStmt *explain_stmt, unique_ptr<Logic
 
 RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_ptr<LogicalOperator> &logical_operator)
 {
-  vector<unique_ptr<Expression>> &group_by_expressions = select_stmt->group_by();
-  vector<Expression *> aggregate_expressions;
-  vector<unique_ptr<Expression>> &query_expressions = select_stmt->query_expressions();
-  function<RC(std::unique_ptr<Expression>&)> collector = [&](unique_ptr<Expression> &expr) -> RC {
+  vector<unique_ptr<Expression>>             &group_by_expressions = select_stmt->group_by();
+  vector<Expression *>                        aggregate_expressions;
+  vector<unique_ptr<Expression>>             &query_expressions = select_stmt->query_expressions();
+  function<RC(std::unique_ptr<Expression> &)> collector         = [&](unique_ptr<Expression> &expr) -> RC {
     RC rc = RC::SUCCESS;
     if (expr->type() == ExprType::AGGREGATION) {
       expr->set_pos(aggregate_expressions.size() + group_by_expressions.size());
@@ -293,7 +304,7 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
     return rc;
   };
 
-  function<RC(std::unique_ptr<Expression>&)> bind_group_by_expr = [&](unique_ptr<Expression> &expr) -> RC {
+  function<RC(std::unique_ptr<Expression> &)> bind_group_by_expr = [&](unique_ptr<Expression> &expr) -> RC {
     RC rc = RC::SUCCESS;
     for (size_t i = 0; i < group_by_expressions.size(); i++) {
       auto &group_by = group_by_expressions[i];
@@ -309,8 +320,8 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
     return rc;
   };
 
- bool found_unbound_column = false;
-  function<RC(std::unique_ptr<Expression>&)> find_unbound_column = [&](unique_ptr<Expression> &expr) -> RC {
+  bool                                        found_unbound_column = false;
+  function<RC(std::unique_ptr<Expression> &)> find_unbound_column  = [&](unique_ptr<Expression> &expr) -> RC {
     RC rc = RC::SUCCESS;
     if (expr->type() == ExprType::AGGREGATION) {
       // do nothing
@@ -318,12 +329,11 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
       // do nothing
     } else if (expr->type() == ExprType::FIELD) {
       found_unbound_column = true;
-    }else {
+    } else {
       rc = ExpressionIterator::iterate_child_expr(*expr, find_unbound_column);
     }
     return rc;
   };
-  
 
   for (unique_ptr<Expression> &expression : query_expressions) {
     bind_group_by_expr(expression);
@@ -350,8 +360,33 @@ RC LogicalPlanGenerator::create_group_by_plan(SelectStmt *select_stmt, unique_pt
 
   // 如果只需要聚合，但是没有group by 语句，需要生成一个空的group by 语句
 
-  auto group_by_oper = make_unique<GroupByLogicalOperator>(std::move(group_by_expressions),
-                                                           std::move(aggregate_expressions));
+  auto group_by_oper =
+      make_unique<GroupByLogicalOperator>(std::move(group_by_expressions), std::move(aggregate_expressions));
   logical_operator = std::move(group_by_oper);
   return RC::SUCCESS;
+}
+
+RC LogicalPlanGenerator::create_order_by_plan(
+    SelectStmt *select_stmt, std::unique_ptr<LogicalOperator> &logical_operator)
+{
+  RC                                       rc = RC::SUCCESS;
+  std::vector<std::unique_ptr<Expression>> order_expressions;
+
+  // 从 SelectStmt 获取 ORDER BY 表达式
+  auto &order_by_exprs = select_stmt->order_by();
+
+  for (auto &expr_ptr : order_by_exprs) {
+    // 确保表达式是 OrderExpr 类型
+    if (expr_ptr->type() != ExprType::ORDER) {
+      LOG_WARN("ORDER BY 表达式不是 OrderExpr 类型");
+      return RC::INTERNAL;
+    }
+    // 移动表达式到 order_expressions
+    order_expressions.emplace_back(std::move(expr_ptr));
+  }
+  if (!order_expressions.empty()) {
+    logical_operator = std::make_unique<OrderByLogicalOperator>(std::move(order_expressions));
+  }
+
+  return rc;
 }

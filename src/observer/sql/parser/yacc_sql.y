@@ -116,6 +116,9 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         COUNT
         AVG
         SUM
+        ORDER
+        ASC
+
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
 %union {
@@ -161,6 +164,8 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <expression>          expression
 %type <expression_list>     expression_list
 %type <expression_list>     group_by
+%type <expression_list>     order_by
+%type <expression_list>     order_list
 %type <sql_node>            calc_stmt
 %type <sql_node>            select_stmt
 %type <sql_node>            insert_stmt
@@ -184,6 +189,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %type <sql_node>            command_wrapper
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
+%type <number>              opt_order_direction
 
 %left '+' '-'
 %left '*' '/'
@@ -452,7 +458,7 @@ update_stmt:      /*  update 语句的语法解析树*/
     }
     ;
 select_stmt:        /*  select 语句的语法解析树*/
-    SELECT expression_list FROM rel_list where group_by
+    SELECT expression_list FROM rel_list where group_by order_by
     {
       $$ = new ParsedSqlNode(SCF_SELECT);
       if ($2 != nullptr) {
@@ -473,6 +479,11 @@ select_stmt:        /*  select 语句的语法解析树*/
       if ($6 != nullptr) {
         $$->selection.group_by.swap(*$6);
         delete $6;
+      }
+
+      if ($7 != nullptr) {
+        $$->selection.order_by.swap(*$7);
+        delete $7;
       }
     }
     ;
@@ -730,6 +741,46 @@ group_by:
       $$ = $3;
     }
     ;
+
+
+opt_order_direction:
+      ASC { $$ = true; }  // 升序
+    | DESC { $$ = false; } // 降序
+    | /* empty */ { $$ = true; } // 默认升序
+    ;
+
+order_by:
+    /* empty */
+    {
+      $$ = new std::vector<std::unique_ptr<Expression>>();
+    }
+    | ORDER BY order_list {
+      $$ = $3;
+    }
+    ;
+
+order_list:
+    expression opt_order_direction {
+      $$ = new std::vector<std::unique_ptr<Expression>>();
+      if ($1 != nullptr) {
+        std::unique_ptr<Expression> child_expr($1);
+        std::unique_ptr<Expression> order_expr = std::make_unique<OrderExpr>(std::move(child_expr), $2);
+        order_expr->set_name(token_name(sql_string, &@$));
+        $$->emplace_back(std::move(order_expr));
+      }
+    }
+    | expression opt_order_direction COMMA order_list {
+      if ($1 != nullptr) {
+        std::unique_ptr<Expression> child_expr($1);
+        std::unique_ptr<Expression> order_expr = std::make_unique<OrderExpr>(std::move(child_expr), $2);
+        order_expr->set_name(token_name(sql_string, &@$));
+        $4->emplace($4->begin(), std::move(order_expr));
+      }
+      $$ = $4;
+    }
+    ;
+
+
 load_data_stmt:
     LOAD DATA INFILE SSS INTO TABLE ID 
     {
