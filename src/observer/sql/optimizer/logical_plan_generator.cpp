@@ -138,7 +138,7 @@ RC LogicalPlanGenerator::create_plan(SelectStmt *select_stmt, unique_ptr<Logical
 
     last_oper = &group_by_oper;
   }
-  // MARK add order by plan
+
   unique_ptr<LogicalOperator> order_by_oper;
   rc = create_order_by_plan(select_stmt, order_by_oper);
   if (OB_FAIL(rc)) {

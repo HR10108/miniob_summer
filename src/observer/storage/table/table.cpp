@@ -127,6 +127,63 @@ RC Table::create(Db *db, int32_t table_id, const char *path, const char *name, c
   return rc;
 }
 
+RC Table::drop(Db *db, const char *path, const char *name, const char *base_dir)
+{
+  RC                 rc  = RC::SUCCESS;
+  BufferPoolManager &bpm = db->buffer_pool_manager();
+  if (common::is_blank(name)) {
+    LOG_WARN("Name cannot be empty");
+    return RC::INVALID_ARGUMENT;
+  }
+  // 同步表，刷新所有脏页
+  rc = sync();
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("同步表 %s 失败", name);
+    return rc;
+  }
+
+  // 关闭数据文件的 buffer pool
+  if (data_buffer_pool_ != nullptr) {
+    rc = data_buffer_pool_->close_file();
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("关闭表 %s 的数据 buffer pool 失败", name);
+      return rc;
+    }
+    data_buffer_pool_ = nullptr;
+  }
+
+  // 删除数据文件
+  string data_file = table_data_file(base_dir, name);
+  rc               = bpm.remove_file(data_file.c_str());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("删除数据文件 %s 失败", data_file.c_str());
+    return rc;
+  }
+
+  // 删除元数据文件
+  rc = bpm.remove_file(path);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("删除元数据文件 %s 失败", path);
+    return rc;
+  }
+
+  // 删除索引文件并清理索引元数据
+  for (Index *index : indexes_) {
+    // 由于 Index 类没有 close 方法，这里不调用 close
+    string index_file = table_index_file(base_dir, name, index->index_meta().name());
+    RC     remove_rc  = bpm.remove_file(index_file.c_str());
+    if (remove_rc != RC::SUCCESS) {
+      LOG_ERROR("删除索引文件 %s 失败", index_file.c_str());
+      // 继续尝试删除其他索引文件，但不立即返回错误
+    }
+    delete index;
+  }
+  indexes_.clear();
+
+  LOG_INFO("成功删除表 %s", name);
+  return RC::SUCCESS;
+}
+
 RC Table::open(Db *db, const char *meta_file, const char *base_dir)
 {
   // 加载元数据文件
@@ -272,7 +329,7 @@ RC Table::make_record(int value_num, const Value *values, Record &record)
 
   for (int i = 0; i < value_num && OB_SUCC(rc); i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
-    const Value &    value = values[i];
+    const Value     &value = values[i];
     if (field->type() != value.attr_type()) {
       Value real_value;
       rc = Value::cast_to(value, field->type(), real_value);

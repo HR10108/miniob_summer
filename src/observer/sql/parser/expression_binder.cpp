@@ -89,7 +89,6 @@ RC ExpressionBinder::bind_expression(unique_ptr<Expression> &expr, vector<unique
     } break;
 
     case ExprType::ORDER: {
-      // MARK implement order expression
       return bind_order_expression(expr, bound_expressions);
     } break;
 
