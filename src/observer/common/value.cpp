@@ -79,8 +79,16 @@ Value::Value(const char *s, AttrType type)
     return;
   }
   time_t t = mktime(&tm);
-  set_int(static_cast<int32_t>(t));
+  set_long_int(static_cast<int64_t>(t));
   attr_type_ = AttrType::DATE;
+}
+
+void Value::set_long_int(int64_t val)
+{
+  reset();
+  attr_type_             = AttrType::DATE;
+  value_.long_int_value_ = val;
+  length_                = sizeof(val);
 }
 
 Value::Value(const Value &other)
@@ -93,8 +101,7 @@ Value::Value(const Value &other)
       set_string_from_other(other);
     } break;
     case AttrType::DATE: {
-      this->attr_type_        = AttrType::DATE;
-      this->value_.int_value_ = other.value_.int_value_;
+      this->value_.long_int_value_ = other.value_.long_int_value_;
     } break;
     default: {
       this->value_ = other.value_;
@@ -125,7 +132,9 @@ Value &Value::operator=(const Value &other)
     case AttrType::CHARS: {
       set_string_from_other(other);
     } break;
-
+    case AttrType::DATE: {
+      this->value_.long_int_value_ = other.value_.long_int_value_;
+    } break;
     default: {
       this->value_ = other.value_;
     } break;
@@ -190,8 +199,8 @@ void Value::set_data(char *data, int length)
       length_            = length;
     } break;
     case AttrType::DATE: {
-      value_.int_value_ = *(int *)data;
-      length_           = length;
+      value_.long_int_value_ = *(int64_t *)data;
+      length_                = 8;
     } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
@@ -408,11 +417,11 @@ bool Value::get_boolean() const
   return false;
 }
 
-int32_t Value::get_date() const
+int64_t Value::get_date() const
 {
   switch (attr_type_) {
     case AttrType::DATE: {
-      return value_.int_value_;
+      return value_.long_int_value_;
     } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
@@ -434,7 +443,7 @@ void Value::set_date(const char *s)
     return;
   }
   time_t t = mktime(&tm);
-  set_int(static_cast<int32_t>(t));
+  set_long_int(static_cast<int64_t>(t));
   attr_type_ = AttrType::DATE;
 }
 

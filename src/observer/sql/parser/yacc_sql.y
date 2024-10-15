@@ -364,7 +364,11 @@ attr_def:
       $$ = new AttrInfoSqlNode;
       $$->type = (AttrType)$2;
       $$->name = $1;
-      $$->length = 4;
+      if ($2 == static_cast<int>(AttrType::DATE)) {
+          $$->length = 8;
+      } else {
+          $$->length = 4;
+      }
       free($1);
     }
     ;

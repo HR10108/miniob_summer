@@ -98,6 +98,7 @@ public:
   void set_data(const char *data, int length) { this->set_data(const_cast<char *>(data), length); }
   void set_value(const Value &value);
   void set_boolean(bool val);
+  void set_long_int(int64_t val);
 
   string to_string() const;
 
@@ -117,7 +118,7 @@ public:
   float   get_float() const;
   string  get_string() const;
   bool    get_boolean() const;
-  int32_t get_date() const;
+  int64_t get_date() const;
   void    set_date(const char *s);
   char   *get_pointer() const;
   bool    validate_date(const char *date_str) const;
@@ -135,6 +136,7 @@ private:
   union Val
   {
     int32_t int_value_;
+    int64_t long_int_value_;
     float   float_value_;
     bool    bool_value_;
     char   *pointer_value_;
