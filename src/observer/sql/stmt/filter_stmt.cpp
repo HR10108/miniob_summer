@@ -103,6 +103,15 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     filter_obj.init_attr(Field(table, field));
     filter_unit->set_left(filter_obj);
   } else {
+    if (condition.left_value.attr_type() == AttrType::CHARS) {
+      const char *date_str = condition.left_value.get_pointer();
+      if (!condition.left_value.validate_date(date_str)) {
+        LOG_WARN("invalid date string: %s", date_str);
+        delete filter_unit;
+        filter_unit = nullptr;
+        return RC::INVALID_ARGUMENT;
+      }
+    }
     FilterObj filter_obj;
     filter_obj.init_value(condition.left_value);
     filter_unit->set_left(filter_obj);
@@ -120,6 +129,15 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     filter_obj.init_attr(Field(table, field));
     filter_unit->set_right(filter_obj);
   } else {
+    if (condition.right_value.attr_type() == AttrType::CHARS) {
+      const char *date_str = condition.right_value.get_pointer();
+      if (!condition.right_value.validate_date(date_str)) {
+        LOG_WARN("invalid date string: %s", date_str);
+        delete filter_unit;
+        filter_unit = nullptr;
+        return RC::INVALID_ARGUMENT;
+      }
+    }
     FilterObj filter_obj;
     filter_obj.init_value(condition.right_value);
     filter_unit->set_right(filter_obj);

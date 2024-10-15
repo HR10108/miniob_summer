@@ -120,6 +120,7 @@ public:
   int32_t get_date() const;
   void    set_date(const char *s);
   char   *get_pointer() const;
+  bool    validate_date(const char *date_str) const;
 
 private:
   void set_int(int val);

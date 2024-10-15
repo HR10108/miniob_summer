@@ -20,6 +20,40 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "common/log/log.h"
 
+bool is_leap_year(int year) { return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0); }
+
+bool Value::validate_date(const char *date_str) const
+{
+  int year, month, day;
+  if (sscanf(date_str, "%4d-%2d-%2d", &year, &month, &day) != 3) {
+    LOG_WARN("invalid date string: %s", date_str);
+    return false;
+  }
+
+  if (year < 1 || year > 9999) {
+    LOG_WARN("year out of range: %d", year);
+    return false;
+  }
+
+  if (month < 1 || month > 12) {
+    LOG_WARN("month out of range: %d", month);
+    return false;
+  }
+
+  int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+  if (month == 2 && is_leap_year(year)) {
+    days_in_month[1] = 29;
+  }
+
+  if (day < 1 || day > days_in_month[month - 1]) {
+    LOG_WARN("day out of range: %d", day);
+    return false;
+  }
+
+  return true;
+}
+
 Value::Value(int val) { set_int(val); }
 
 Value::Value(float val) { set_float(val); }
@@ -59,9 +93,8 @@ Value::Value(const Value &other)
       set_string_from_other(other);
     } break;
     case AttrType::DATE: {
-      this->attr_type_ = AttrType::CHARS;
-      set_string_from_other(other);
-      this->attr_type_ = AttrType::DATE;
+      this->attr_type_        = AttrType::DATE;
+      this->value_.int_value_ = other.value_.int_value_;
     } break;
     default: {
       this->value_ = other.value_;
@@ -124,12 +157,12 @@ void Value::reset()
         value_.pointer_value_ = nullptr;
       }
       break;
-    case AttrType::DATE:
-      if (own_data_ && value_.pointer_value_ != nullptr) {
-        delete[] value_.pointer_value_;
-        value_.pointer_value_ = nullptr;
-      }
-      break;
+    // case AttrType::DATE:
+    //   if (own_data_ && value_.pointer_value_ != nullptr) {
+    //     delete[] value_.pointer_value_;
+    //     value_.pointer_value_ = nullptr;
+    //   }
+    //   break;
     default: break;
   }
 
@@ -157,7 +190,8 @@ void Value::set_data(char *data, int length)
       length_            = length;
     } break;
     case AttrType::DATE: {
-      printf("date is %d\n", value_.int_value_);
+      value_.int_value_ = *(int *)data;
+      length_           = length;
     } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
