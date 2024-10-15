@@ -38,16 +38,40 @@ RC InsertStmt::create(Db *db, const InsertSqlNode &inserts, Stmt *&stmt)
   }
 
   // check the fields number
-  const Value     *values     = inserts.values.data();
-  const int        value_num  = static_cast<int>(inserts.values.size());
-  const TableMeta &table_meta = table->table_meta();
-  const int        field_num  = table_meta.field_num() - table_meta.sys_field_num();
+  // const Value     *values     = inserts.values.data();
+  std::vector<Value> values_vec = inserts.values;
+  const int          value_num  = static_cast<int>(inserts.values.size());
+  const TableMeta   &table_meta = table->table_meta();
+  const int          field_num  = table_meta.field_num() - table_meta.sys_field_num();
   if (field_num != value_num) {
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;
   }
 
-  // everything alright
-  stmt = new InsertStmt(table, values, value_num);
+  // Check the field type
+  const int sys_field_num = table_meta.sys_field_num();
+  for (int i = 0; i < value_num; i++) {
+    const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+    const AttrType   field_type = field_meta->type();
+    const AttrType   value_type = values_vec[i].attr_type();
+    if (field_type != value_type) {
+      if (value_type == AttrType::CHARS && field_type == AttrType::DATE) {
+        // Convert string to date
+        char *date_str = values_vec[i].get_pointer();
+        // copy the date string
+        char *date_str_copy = new char[strlen(date_str) + 1];
+        strcpy(date_str_copy, date_str);
+        values_vec[i].set_date(date_str_copy);
+        delete[] date_str_copy;
+      } else {
+        LOG_WARN("type mismatch. field type=%d, value type=%d", field_type, value_type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    }
+  }
+
+  // Everything is alright
+  const Value *values = values_vec.data();
+  stmt                = new InsertStmt(table, values, value_num);
   return RC::SUCCESS;
 }

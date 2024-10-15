@@ -45,7 +45,7 @@ bool stmt_type_ddl(StmtType type)
     }
   }
 }
-// MARK Drop table
+
 RC Stmt::create_stmt(Db *db, ParsedSqlNode &sql_node, Stmt *&stmt)
 {
   stmt = nullptr;

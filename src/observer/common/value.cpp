@@ -28,6 +28,27 @@ Value::Value(bool val) { set_boolean(val); }
 
 Value::Value(const char *s, int len /*= 0*/) { set_string(s, len); }
 
+/**
+ * @brief Construct time_t from a date string
+ *
+ * @param s  The date string
+ * @param type  DataType::DATE
+ */
+Value::Value(const char *s, AttrType type)
+{
+  ASSERT(type == AttrType::DATE, "type is not DATE");
+  struct tm tm;
+  memset(&tm, 0, sizeof(tm));
+  if (strptime(s, "%Y-%m-%d", &tm) == nullptr) {
+    LOG_WARN("invalid date string: %s", s);
+    attr_type_ = AttrType::UNDEFINED;
+    return;
+  }
+  time_t t = mktime(&tm);
+  set_int(static_cast<int32_t>(t));
+  attr_type_ = AttrType::DATE;
+}
+
 Value::Value(const Value &other)
 {
   this->attr_type_ = other.attr_type_;
@@ -37,7 +58,11 @@ Value::Value(const Value &other)
     case AttrType::CHARS: {
       set_string_from_other(other);
     } break;
-
+    case AttrType::DATE: {
+      this->attr_type_ = AttrType::CHARS;
+      set_string_from_other(other);
+      this->attr_type_ = AttrType::DATE;
+    } break;
     default: {
       this->value_ = other.value_;
     } break;
@@ -99,6 +124,12 @@ void Value::reset()
         value_.pointer_value_ = nullptr;
       }
       break;
+    case AttrType::DATE:
+      if (own_data_ && value_.pointer_value_ != nullptr) {
+        delete[] value_.pointer_value_;
+        value_.pointer_value_ = nullptr;
+      }
+      break;
     default: break;
   }
 
@@ -124,6 +155,9 @@ void Value::set_data(char *data, int length)
     case AttrType::BOOLEANS: {
       value_.bool_value_ = *(int *)data != 0;
       length_            = length;
+    } break;
+    case AttrType::DATE: {
+      printf("date is %d\n", value_.int_value_);
     } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
@@ -229,7 +263,10 @@ string Value::to_string() const
   return res;
 }
 
-int Value::compare(const Value &other) const { return DataType::type_instance(this->attr_type_)->compare(*this, other); }
+int Value::compare(const Value &other) const
+{
+  return DataType::type_instance(this->attr_type_)->compare(*this, other);
+}
 
 int Value::get_int() const
 {
@@ -250,6 +287,9 @@ int Value::get_int() const
     }
     case AttrType::BOOLEANS: {
       return (int)(value_.bool_value_);
+    }
+    case AttrType::DATE: {
+      return value_.int_value_;
     }
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
@@ -278,6 +318,9 @@ float Value::get_float() const
     } break;
     case AttrType::BOOLEANS: {
       return float(value_.bool_value_);
+    } break;
+    case AttrType::DATE: {
+      return float(value_.int_value_);
     } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
@@ -320,10 +363,57 @@ bool Value::get_boolean() const
     case AttrType::BOOLEANS: {
       return value_.bool_value_;
     } break;
+    case AttrType::DATE: {
+      return value_.int_value_ != 0;
+    } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
       return false;
     }
   }
   return false;
+}
+
+int32_t Value::get_date() const
+{
+  switch (attr_type_) {
+    case AttrType::DATE: {
+      return value_.int_value_;
+    } break;
+    default: {
+      LOG_WARN("unknown data type. type=%d", attr_type_);
+      return 0;
+    }
+  }
+  return 0;
+}
+
+void Value::set_date(const char *s)
+{
+  reset();
+  attr_type_ = AttrType::DATE;
+  struct tm tm;
+  memset(&tm, 0, sizeof(tm));
+  if (strptime(s, "%Y-%m-%d", &tm) == nullptr) {
+    LOG_WARN("invalid date string: %s", s);
+    attr_type_ = AttrType::UNDEFINED;
+    return;
+  }
+  time_t t = mktime(&tm);
+  set_int(static_cast<int32_t>(t));
+  attr_type_ = AttrType::DATE;
+}
+
+char *Value::get_pointer() const
+{
+  switch (attr_type_) {
+    case AttrType::CHARS: {
+      return value_.pointer_value_;
+    } break;
+    default: {
+      LOG_WARN("unknown data type. type=%d", attr_type_);
+      return nullptr;
+    }
+  }
+  return nullptr;
 }

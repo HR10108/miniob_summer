@@ -118,6 +118,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         SUM
         ORDER
         ASC
+        DATE_T
 
 
 /** union 中定义各种数据类型，真实生成的代码也是union类型，所以不能有非POD类型的数据 **/
@@ -138,12 +139,14 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   char *                                     string;
   int                                        number;
   float                                      floats;
+  char *                                     date;
 }
 
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <string> ID
 %token <string> SSS
+
 //非终结符
 
 /** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
@@ -190,6 +193,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 // commands should be a list but I use a single command instead
 %type <sql_node>            commands
 %type <number>              opt_order_direction
+
 
 %left '+' '-'
 %left '*' '/'
@@ -371,6 +375,7 @@ type:
     INT_T      { $$ = static_cast<int>(AttrType::INTS); }
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
+    | DATE_T   { $$ = static_cast<int>(AttrType::DATE); }
     ;
 insert_stmt:        /*insert   语句的语法解析树*/
     INSERT INTO ID VALUES LBRACE value value_list RBRACE 

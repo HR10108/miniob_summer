@@ -34,6 +34,7 @@ public:
   friend class FloatType;
   friend class BooleanType;
   friend class CharType;
+  friend class DateType;
 
   Value() = default;
 
@@ -45,6 +46,14 @@ public:
   explicit Value(float val);
   explicit Value(bool val);
   explicit Value(const char *s, int len = 0);
+
+  /**
+   * @brief Construct a new Value object from a DATE int value
+   *
+   * @param s  The date string
+   * @param type  DataType::DATE
+   */
+  explicit Value(const char *s, AttrType type);
 
   Value(const Value &other);
   Value(Value &&other);
@@ -104,10 +113,13 @@ public:
    * 获取对应的值
    * 如果当前的类型与期望获取的类型不符，就会执行转换操作
    */
-  int    get_int() const;
-  float  get_float() const;
-  string get_string() const;
-  bool   get_boolean() const;
+  int     get_int() const;
+  float   get_float() const;
+  string  get_string() const;
+  bool    get_boolean() const;
+  int32_t get_date() const;
+  void    set_date(const char *s);
+  char   *get_pointer() const;
 
 private:
   void set_int(int val);
