@@ -122,12 +122,10 @@ public:
   void    set_date(const char *s);
   char   *get_pointer() const;
   bool    validate_date(const char *date_str) const;
-
-private:
-  void set_int(int val);
-  void set_float(float val);
-  void set_string(const char *s, int len = 0);
-  void set_string_from_other(const Value &other);
+  void    set_int(int val);
+  void    set_float(float val);
+  void    set_string(const char *s, int len = 0);
+  void    set_string_from_other(const Value &other);
 
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;

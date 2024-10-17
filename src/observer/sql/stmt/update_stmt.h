@@ -16,7 +16,12 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/rc.h"
 #include "sql/stmt/stmt.h"
+#include "sql/stmt/filter_stmt.h"
+#include "sql/parser/parse_defs.h"
+#include "sql/stmt/stmt.h"
 
+class Table;
+class FilterStmt;
 class Table;
 
 /**
@@ -27,18 +32,33 @@ class UpdateStmt : public Stmt
 {
 public:
   UpdateStmt() = default;
-  UpdateStmt(Table *table, Value *values, int value_amount);
+  UpdateStmt(Table *table, Value *values, int value_amount, FilterStmt *filter_stmt, char *attribute)
+      : table_(table), values_(values), value_amount_(value_amount), filter_stmt_(filter_stmt), attribute_(attribute)
+  {}
+  ~UpdateStmt()
+  {
+    if (filter_stmt_ != nullptr) {
+      delete filter_stmt_;
+      filter_stmt_ = nullptr;
+    }
+  }
 
 public:
-  static RC create(Db *db, const UpdateSqlNode &update_sql, Stmt *&stmt);
+  static RC create(Db *db, UpdateSqlNode &update_sql, Stmt *&stmt);
 
 public:
-  Table *table() const { return table_; }
-  Value *values() const { return values_; }
-  int    value_amount() const { return value_amount_; }
+  Table      *table() const { return table_; }
+  Value      *values() const { return values_; }
+  int         value_amount() const { return value_amount_; }
+  StmtType    type() const override { return StmtType::UPDATE; }
+  FilterStmt *filter_stmt() const { return filter_stmt_; }
+  char       *attribute() const { return attribute_; }
 
 private:
-  Table *table_        = nullptr;
-  Value *values_       = nullptr;
-  int    value_amount_ = 0;
+  Table      *table_        = nullptr;
+  Value      *values_       = nullptr;
+  int         value_amount_ = 0;
+  FilterStmt *filter_stmt_  = nullptr;
+  char       *attribute_    = nullptr;
+
 };

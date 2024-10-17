@@ -166,12 +166,12 @@ void Value::reset()
         value_.pointer_value_ = nullptr;
       }
       break;
-    // case AttrType::DATE:
-    //   if (own_data_ && value_.pointer_value_ != nullptr) {
-    //     delete[] value_.pointer_value_;
-    //     value_.pointer_value_ = nullptr;
-    //   }
-    //   break;
+    case AttrType::DATE:
+      if (own_data_ && value_.pointer_value_ != nullptr) {
+        delete[] value_.pointer_value_;
+        value_.pointer_value_ = nullptr;
+      }
+      break;
     default: break;
   }
 
